@@ -1,55 +1,53 @@
 <!DOCTYPE html>
 <html lang="es">
 <head>
-  <meta charset="UTF-8">
-  <title>DataOasis - ZIP cifrado AES-256</title>
+  <meta charset="UTF-8"/>
+  <title>Ejemplo ZIP AES-256</title>
 
-  <!-- 1) Librería pdf-lib (para manipular/crear PDF en el navegador) -->
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf-lib/1.17.1/pdf-lib.min.js"></script>
-
-  <!-- 2) Librería download.js (para forzar descargas en el navegador) -->
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/downloadjs/1.4.8/download.min.js"></script>
-
-  <!-- 3) zip.js versión 2.x (para crear ZIP con cifrado AES-256) -->
+  <!-- Cargar zip.js desde la CDN (versión que soporta AES-256) -->
   <script src="https://cdn.jsdelivr.net/npm/zip.js@2.6.63/dist/zip-full.min.js"></script>
-
+  
   <style>
     body {
       font-family: Arial, sans-serif;
-      max-width: 720px;
+      max-width: 600px;
       margin: 20px auto;
-      background-color: #f9f9f9;
+      background-color: #f8f8f8;
       padding: 20px;
     }
     h1 {
       text-align: center;
       color: #4a90e2;
     }
-    .form-group {
+    label {
+      font-weight: bold;
+      display: block;
+      margin-top: 10px;
+    }
+    input[type="file"] {
+      margin-top: 5px;
       margin-bottom: 15px;
     }
-    label { font-weight: bold; }
+    input[type="password"] {
+      margin-top: 5px;
+      margin-bottom: 15px;
+      width: 100%;
+      max-width: 300px;
+    }
     button {
+      margin-top: 10px;
       background-color: #4caf50;
       color: #fff;
       padding: 8px 16px;
       border: none;
-      cursor: pointer;
       border-radius: 4px;
-    }
-    button:hover {
-      background-color: #45a049;
+      cursor: pointer;
     }
     #status {
-      margin-top: 20px;
+      margin-top: 15px;
       padding: 10px;
-      border-radius: 5px;
+      border-radius: 4px;
       display: none;
-    }
-    .status-processing {
-      background-color: #fff3cd;
-      color: #856404;
-      border: 1px solid #ffeeba;
     }
     .status-error {
       background-color: #f8d7da;
@@ -61,250 +59,90 @@
       color: #155724;
       border: 1px solid #c3e6cb;
     }
-    fieldset {
-      border: 1px solid #ccc;
-      margin-top: 20px;
-      padding: 10px 15px;
-    }
   </style>
 </head>
 <body>
 
-<h1>DataOasis - Generar ZIP cifrado (AES-256)</h1>
+<h1>ZIP con AES-256</h1>
 
-<fieldset>
-  <legend>1. Seleccionar fichero de entrada</legend>
-  <div class="form-group">
-    <label for="fileInput">Archivo:</label>
-    <input type="file" id="fileInput" />
-  </div>
-</fieldset>
+<label for="fileInput">Selecciona un fichero:</label>
+<input type="file" id="fileInput">
 
-<fieldset>
-  <legend>2. Opciones PDF (opcionales)</legend>
-  <!-- Si se marca, creamos (o editamos) un PDF con pdf-lib -->
-  <div class="form-group">
-    <input type="checkbox" id="createPdf">
-    <label for="createPdf">Convertir/editar como PDF antes de incluir en ZIP</label>
-  </div>
+<label for="passwordInput">Introduce una contraseña (AES-256):</label>
+<input type="password" id="passwordInput" placeholder="Contraseña para el ZIP...">
 
-  <div class="form-group" style="margin-left: 20px;">
-    <input type="checkbox" id="watermark" disabled>
-    <label for="watermark">Añadir marca de agua</label>
-  </div>
-
-  <div class="form-group" style="margin-left: 20px;">
-    <input type="checkbox" id="antifraud" disabled>
-    <label for="antifraud">Aplicar rejilla antifraude</label>
-  </div>
-
-  <div class="form-group" style="margin-left: 20px;">
-    <input type="checkbox" id="removeMetadata" disabled>
-    <label for="removeMetadata">Eliminar metadatos</label>
-  </div>
-
-  <div class="form-group" style="margin-left: 20px;">
-    <input type="checkbox" id="addMetadataTag" disabled>
-    <label for="addMetadataTag">Añadir etiqueta en metadatos</label>
-    <select id="metadataType" disabled>
-      <option value="confidencial">Confidencial</option>
-      <option value="publico">Público</option>
-      <option value="secreto">Secreto</option>
-    </select>
-  </div>
-</fieldset>
-
-<fieldset>
-  <legend>3. Configurar ZIP cifrado</legend>
-  <div class="form-group">
-    <label for="zipPassword">Contraseña para ZIP (AES-256):</label><br/>
-    <input type="password" id="zipPassword" style="margin-top:5px;width: 50%;">
-  </div>
-</fieldset>
-
-<div class="form-group">
-  <button id="processBtn">Procesar y generar ZIP</button>
-</div>
+<button id="zipButton">Crear ZIP cifrado</button>
 
 <div id="status"></div>
 
 <script>
-  // Al marcar "createPdf", habilitamos/deshabilitamos las opciones
-  document.getElementById('createPdf').addEventListener('change', (e) => {
-    const isChecked = e.target.checked;
-    document.getElementById('watermark').disabled = !isChecked;
-    document.getElementById('antifraud').disabled = !isChecked;
-    document.getElementById('removeMetadata').disabled = !isChecked;
-    document.getElementById('addMetadataTag').disabled = !isChecked;
-    document.getElementById('metadataType').disabled = !isChecked || !document.getElementById('addMetadataTag').checked;
-  });
-
-  document.getElementById('addMetadataTag').addEventListener('change', (e) => {
-    document.getElementById('metadataType').disabled = !e.target.checked;
-  });
-
-  // Función para mostrar estado
-  function showStatus(message, type) {
+  // Función auxiliar para mostrar mensajes en la página
+  function showStatus(msg, className) {
     const statusDiv = document.getElementById('status');
-    statusDiv.textContent = message;
+    statusDiv.textContent = msg;
+    statusDiv.className = '';
+    if (className) {
+      statusDiv.classList.add(className);
+    }
     statusDiv.style.display = 'block';
-    statusDiv.className = ''; // Borrar clases anteriores
-    statusDiv.classList.add(`status-${type}`);
   }
 
-  document.getElementById('processBtn').addEventListener('click', async () => {
+  document.getElementById('zipButton').addEventListener('click', async () => {
     const fileInput = document.getElementById('fileInput');
-    const createPdf = document.getElementById('createPdf').checked;
-    const watermark = document.getElementById('watermark').checked;
-    const antifraud = document.getElementById('antifraud').checked;
-    const removeMetadata = document.getElementById('removeMetadata').checked;
-    const addMetadataTag = document.getElementById('addMetadataTag').checked;
-    const metadataValue = document.getElementById('metadataType').value;
-    const zipPassword = document.getElementById('zipPassword').value.trim();
+    const password = document.getElementById('passwordInput').value.trim();
 
+    // Validaciones básicas
     if (!fileInput.files[0]) {
-      showStatus('Por favor, selecciona un archivo.', 'error');
+      showStatus('Por favor, selecciona un fichero.', 'status-error');
       return;
     }
-    if (!zipPassword) {
-      showStatus('Por favor, introduce una contraseña para el ZIP.', 'error');
+    if (!password) {
+      showStatus('Por favor, introduce una contraseña.', 'status-error');
       return;
     }
 
-    showStatus('Procesando... Por favor espera.', 'processing');
-
-    const file = fileInput.files[0];
-    let fileName = file.name;
+    // Limpiamos mensaje anterior y procesamos
+    showStatus('Creando ZIP cifrado, espera...', '');
 
     try {
-      let fileData;
-      // Si creamos/transformamos a PDF (usando pdf-lib)
-      if (createPdf) {
-        // Cargamos pdf-lib
-        const { PDFDocument, StandardFonts, rgb, degrees } = PDFLib;
-        let pdfDoc;
+      // 1) Leemos el archivo seleccionado
+      const file = fileInput.files[0];
+      const arrayBuffer = await file.arrayBuffer();
+      const fileName = file.name;
 
-        // Leemos el archivo como ArrayBuffer
-        const arrayBuffer = await file.arrayBuffer();
-
-        if (file.type === 'application/pdf') {
-          // Editamos el PDF existente
-          pdfDoc = await PDFDocument.load(arrayBuffer);
-        } else {
-          // Creamos un PDF nuevo con una página que indique el origen
-          pdfDoc = await PDFDocument.create();
-          const page = pdfDoc.addPage();
-          const font = await pdfDoc.embedFont(StandardFonts.Helvetica);
-          page.drawText(`Contenido convertido desde: ${file.name}`, {
-            x: 50,
-            y: page.getHeight() - 50,
-            font,
-            size: 12
-          });
-        }
-
-        // Marca de agua
-        if (watermark) {
-          const pages = pdfDoc.getPages();
-          const font = await pdfDoc.embedFont(StandardFonts.HelveticaOblique);
-          for (const page of pages) {
-            const { width, height } = page.getSize();
-            page.drawText('Protegido por DataOasis - Protected by DataOasis', {
-              x: width / 2 - 200,
-              y: height / 2,
-              font,
-              size: 24,
-              opacity: 0.2,
-              rotate: degrees(45),
-              color: rgb(0,0,0)
-            });
-          }
-        }
-
-        // Rejilla antifraude
-        if (antifraud) {
-          const pages = pdfDoc.getPages();
-          for (const page of pages) {
-            const { width, height } = page.getSize();
-            // Líneas verticales
-            for (let x = 0; x < width; x += 50) {
-              page.drawLine({
-                start: { x, y: 0 },
-                end: { x, y: height },
-                thickness: 0.5,
-                opacity: 0.1,
-                color: rgb(0,0,0)
-              });
-            }
-            // Líneas horizontales
-            for (let y = 0; y < height; y += 50) {
-              page.drawLine({
-                start: { x: 0, y },
-                end: { x: width, y },
-                thickness: 0.5,
-                opacity: 0.1,
-                color: rgb(0,0,0)
-              });
-            }
-          }
-        }
-
-        // Eliminar metadatos
-        if (removeMetadata) {
-          pdfDoc.setTitle('');
-          pdfDoc.setAuthor('');
-          pdfDoc.setSubject('');
-          pdfDoc.setKeywords([]);
-          pdfDoc.setProducer('DataOasis');
-          pdfDoc.setCreator('DataOasis');
-        }
-
-        // Añadir etiqueta en metadatos
-        if (addMetadataTag) {
-          const subject = `DataOasis - ${metadataValue.toUpperCase()}`;
-          pdfDoc.setSubject(subject);
-          pdfDoc.setKeywords(['DataOasis', metadataValue, 'protected']);
-        }
-
-        // Guardar el PDF en memoria
-        const pdfBytes = await pdfDoc.save();
-        fileData = pdfBytes;
-        // Cambiamos el nombre a "_protected.pdf"
-        fileName = fileName.replace(/\.\w+$/, '') + '_protected.pdf';
-      } else {
-        // Si no creamos PDF, solo leemos el contenido tal cual
-        fileData = await file.arrayBuffer();
-      }
-
-      // Crear un ZIP cifrado con zip.js (AES-256)
-      // 1) BlobWriter
+      // 2) Creamos un "BlobWriter" para el zip
       const blobWriter = new zip.BlobWriter("application/zip");
-      
-      // 2) Creamos ZipWriter con password y encryptionStrength = 3 (AES-256)
+
+      // 3) Instanciamos ZipWriter con la contraseña y encryptionStrength = 3 (AES-256)
       const zipWriter = new zip.ZipWriter(blobWriter, {
-        password: zipPassword,
-        encryptionStrength: 3 // 1->AES-128, 2->AES-192, 3->AES-256
+        password,
+        encryptionStrength: 3  // 1->AES-128, 2->AES-192, 3->AES-256
       });
 
-      // 3) Añadimos nuestro fichero (PDF modificado o el original)
-      const fileUint8 = new Uint8Array(fileData);
-      await zipWriter.add(
-        fileName, 
-        new zip.Uint8ArrayReader(fileUint8)
-      );
+      // 4) Añadimos el archivo al ZIP
+      const fileUint8 = new Uint8Array(arrayBuffer);
+      await zipWriter.add(fileName, new zip.Uint8ArrayReader(fileUint8));
 
-      // 4) Cerramos el zip
+      // 5) Cerramos el ZipWriter
       await zipWriter.close();
+
+      // 6) Obtenemos el Blob resultante
       const zipBlob = blobWriter.getData();
 
-      // 5) Forzamos descarga
-      const zipOutputName = fileName.replace(/\.\w+$/, '') + '_AES256.zip';
-      download(zipBlob, zipOutputName, "application/zip");
+      // 7) Forzamos la descarga del ZIP
+      const zipName = fileName.replace(/\.\w+$/, '') + '_AES256.zip';
+      const url = URL.createObjectURL(zipBlob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = zipName;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
 
-      showStatus(`ZIP cifrado con AES-256 generado correctamente: ${zipOutputName}`, 'success');
-    } catch (err) {
-      console.error(err);
-      showStatus('Error: ' + err.message, 'error');
+      showStatus(`ZIP cifrado generado: ${zipName}`, 'status-success');
+    } catch (error) {
+      console.error(error);
+      showStatus(`Error al crear ZIP: ${error.message}`, 'status-error');
     }
   });
 </script>
