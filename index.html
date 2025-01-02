@@ -3,10 +3,6 @@
 <head>
   <meta charset="UTF-8"/>
   <title>Ejemplo ZIP AES-256</title>
-
-  <!-- Cargar zip.js desde la CDN (versión que soporta AES-256) -->
-  <script src="https://cdn.jsdelivr.net/npm/zip.js@2.6.63/dist/zip-full.min.js"></script>
-  
   <style>
     body {
       font-family: Arial, sans-serif;
@@ -75,8 +71,9 @@
 
 <div id="status"></div>
 
-<script>
-  // Función auxiliar para mostrar mensajes en la página
+<script type="module">
+  import * as zip from 'https://cdn.jsdelivr.net/npm/zip.js@2.6.63/dist/zip.min.js';
+
   function showStatus(msg, className) {
     const statusDiv = document.getElementById('status');
     statusDiv.textContent = msg;
@@ -91,7 +88,6 @@
     const fileInput = document.getElementById('fileInput');
     const password = document.getElementById('passwordInput').value.trim();
 
-    // Validaciones básicas
     if (!fileInput.files[0]) {
       showStatus('Por favor, selecciona un fichero.', 'status-error');
       return;
@@ -101,35 +97,24 @@
       return;
     }
 
-    // Limpiamos mensaje anterior y procesamos
     showStatus('Creando ZIP cifrado, espera...', '');
 
     try {
-      // 1) Leemos el archivo seleccionado
       const file = fileInput.files[0];
       const arrayBuffer = await file.arrayBuffer();
       const fileName = file.name;
 
-      // 2) Creamos un "BlobWriter" para el zip
       const blobWriter = new zip.BlobWriter("application/zip");
-
-      // 3) Instanciamos ZipWriter con la contraseña y encryptionStrength = 3 (AES-256)
       const zipWriter = new zip.ZipWriter(blobWriter, {
         password,
-        encryptionStrength: 3  // 1->AES-128, 2->AES-192, 3->AES-256
+        encryptionStrength: 3
       });
 
-      // 4) Añadimos el archivo al ZIP
       const fileUint8 = new Uint8Array(arrayBuffer);
       await zipWriter.add(fileName, new zip.Uint8ArrayReader(fileUint8));
-
-      // 5) Cerramos el ZipWriter
       await zipWriter.close();
 
-      // 6) Obtenemos el Blob resultante
       const zipBlob = blobWriter.getData();
-
-      // 7) Forzamos la descarga del ZIP
       const zipName = fileName.replace(/\.\w+$/, '') + '_AES256.zip';
       const url = URL.createObjectURL(zipBlob);
       const a = document.createElement('a');
