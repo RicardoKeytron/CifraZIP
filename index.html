@@ -2,7 +2,7 @@
 <html lang="es">
 <head>
   <meta charset="UTF-8"/>
-  <title>Ejemplo ZIP AES-256</title>
+  <title>Ejemplo ZIP AES-256 con Etiqueta DLP</title>
   <script src="zip-full.min.js"></script>
   <style>
     body {
@@ -28,6 +28,12 @@
     input[type="password"] {
       margin-top: 5px;
       margin-bottom: 5px;
+      width: 100%;
+      max-width: 300px;
+    }
+    select {
+      margin-top: 5px;
+      margin-bottom: 15px;
       width: 100%;
       max-width: 300px;
     }
@@ -85,11 +91,13 @@
   </style>
 </head>
 <body>
-  <h1>ZIP con AES-256</h1>
+  <h1>ZIP con AES-256 y Etiqueta DLP</h1>
 
+  <!-- Selección del fichero a comprimir -->
   <label for="fileInput">Selecciona un fichero:</label>
   <input type="file" id="fileInput">
 
+  <!-- Contraseña y validaciones -->
   <label for="passwordInput">Introduce una contraseña (AES-256):</label>
   <input type="password" id="passwordInput" placeholder="Contraseña para el ZIP...">
   
@@ -105,15 +113,26 @@
   <input type="password" id="passwordConfirm" placeholder="Repite la contraseña...">
   <div id="passwordMatch" class="passwords-match">Las contraseñas no coinciden</div>
 
+  <!-- Nueva etiqueta DLP opcional -->
+  <label for="labelSelect">Etiqueta (opcional):</label>
+  <select id="labelSelect">
+    <option value="">— Sin etiqueta —</option>
+    <option value="Público">Público</option>
+    <option value="Privado">Privado</option>
+    <option value="Confidencial">Confidencial</option>
+  </select>
+
   <button id="zipButton" disabled>Crear ZIP cifrado</button>
 
   <div id="status"></div>
 
   <script>
+    // Configurar zip.js
     zip.configure({
       useWebWorkers: false
     });
 
+    // Función para mostrar mensaje de estado
     function showStatus(msg, className) {
       const statusDiv = document.getElementById('status');
       statusDiv.textContent = msg;
@@ -124,6 +143,7 @@
       statusDiv.style.display = 'block';
     }
 
+    // Validar que la contraseña cumpla con los requisitos
     function validatePassword(password) {
       const requirements = {
         length: password.length >= 10,
@@ -142,6 +162,7 @@
       return Object.values(requirements).every(req => req);
     }
 
+    // Verificar si las contraseñas coinciden
     function checkPasswordsMatch() {
       const password = document.getElementById('passwordInput').value;
       const confirm = document.getElementById('passwordConfirm').value;
@@ -154,6 +175,7 @@
       return matches;
     }
 
+    // Habilitar/deshabilitar botón según validaciones
     function updateZipButton() {
       const password = document.getElementById('passwordInput').value;
       const fileSelected = document.getElementById('fileInput').files.length > 0;
@@ -166,10 +188,13 @@
     document.getElementById('fileInput').addEventListener('change', updateZipButton);
     document.getElementById('passwordInput').addEventListener('input', updateZipButton);
     document.getElementById('passwordConfirm').addEventListener('input', updateZipButton);
+    document.getElementById('labelSelect').addEventListener('change', updateZipButton);
 
+    // Crear el ZIP cifrado al hacer clic
     document.getElementById('zipButton').addEventListener('click', async () => {
       const fileInput = document.getElementById('fileInput');
       const password = document.getElementById('passwordInput').value.trim();
+      const labelDLP = document.getElementById('labelSelect').value; // Etiqueta seleccionada (puede estar vacía)
 
       showStatus('Creando ZIP cifrado, espera...', '');
 
@@ -178,28 +203,41 @@
         const arrayBuffer = await file.arrayBuffer();
         const fileName = file.name;
 
+        // Si hay etiqueta, la añadimos como comentario tanto al ZIP como al fichero interno
+        const zipComment = labelDLP ? `Etiqueta DLP: ${labelDLP}` : '';
+        const fileComment = labelDLP ? `Etiqueta DLP: ${labelDLP}` : '';
+
+        // Configuración general del ZIP
         const zipConfig = {
           password,
           encryptionStrength: 3,
           zipCrypto: true,
           useWebWorkers: false,
-          level: 5
+          level: 5,
+          comment: zipComment // Comentario a nivel de ZIP
         };
 
+        // Crear escritor de Blob para el ZIP
         const zipFileWriter = new zip.BlobWriter("application/zip");
         const zipWriter = new zip.ZipWriter(zipFileWriter, zipConfig);
 
+        // Añadir fichero dentro del ZIP con comentario
         await zipWriter.add(fileName, new zip.Uint8ArrayReader(new Uint8Array(arrayBuffer)), {
           password,
           encryptionStrength: 3,
           zipCrypto: true,
-          level: 5
+          level: 5,
+          comment: fileComment // Comentario a nivel de fichero dentro del ZIP
         });
 
+        // Cerrar y obtener el Blob final
         await zipWriter.close();
         const zipBlob = await zipFileWriter.getData();
 
+        // Generar nombre para el ZIP
         const zipName = `${fileName.split('.')[0]}_encrypted.zip`;
+
+        // Crear enlace de descarga
         const downloadLink = document.createElement('a');
         downloadLink.href = URL.createObjectURL(zipBlob);
         downloadLink.download = zipName;
