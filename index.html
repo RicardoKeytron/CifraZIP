@@ -1,43 +1,19 @@
-<!DOCTYPE html>
-<html lang="es">
-<head>
   <meta charset="UTF-8"/>
   <title>Ejemplo ZIP AES-256</title>
-  <script src="jszip.min.js"></script>
+  <script src="zip-full.min.js"></script>
   <style>
-    /* Mantener todos los estilos anteriores */
     body {
       font-family: Arial, sans-serif;
-      max-width: 600px;
-      margin: 20px auto;
-      background-color: #f8f8f8;
-      padding: 20px;
-    }
-    h1 {
-      text-align: center;
-      color: #4a90e2;
-    }
-    label {
-      font-weight: bold;
-      display: block;
-      margin-top: 10px;
-    }
-    input[type="file"] {
-      margin-top: 5px;
-      margin-bottom: 15px;
+@@ -28,7 +27,7 @@
     }
     input[type="password"] {
       margin-top: 5px;
+      margin-bottom: 15px;
       margin-bottom: 5px;
       width: 100%;
       max-width: 300px;
     }
-    button {
-      margin-top: 10px;
-      background-color: #4caf50;
-      color: #fff;
-      padding: 8px 16px;
-      border: none;
+@@ -41,6 +40,10 @@
       border-radius: 4px;
       cursor: pointer;
     }
@@ -48,16 +24,7 @@
     #status {
       margin-top: 15px;
       padding: 10px;
-      border-radius: 4px;
-      display: none;
-    }
-    .status-error {
-      background-color: #f8d7da;
-      color: #721c24;
-      border: 1px solid #f5c6cb;
-    }
-    .status-success {
-      background-color: #d4edda;
+@@ -57,6 +60,28 @@
       color: #155724;
       border: 1px solid #c3e6cb;
     }
@@ -83,31 +50,10 @@
     .passwords-match.met {
       color: #28a745;
     }
-    /* Nuevo estilo para el select */
-    select {
-      margin-top: 5px;
-      margin-bottom: 15px;
-      width: 100%;
-      max-width: 300px;
-      padding: 8px;
-      border-radius: 4px;
-      border: 1px solid #ddd;
-    }
   </style>
 </head>
 <body>
-  <h1>ZIP con AES-256</h1>
-
-  <label for="fileInput">Selecciona un fichero:</label>
-  <input type="file" id="fileInput">
-
-  <label for="dlpTag">Etiqueta DLP (opcional):</label>
-  <select id="dlpTag">
-    <option value="">Sin etiqueta</option>
-    <option value="Público">Público</option>
-    <option value="Privado">Privado</option>
-    <option value="Confidencial">Confidencial</option>
-  </select>
+@@ -67,13 +92,24 @@
 
   <label for="passwordInput">Introduce una contraseña (AES-256):</label>
   <input type="password" id="passwordInput" placeholder="Contraseña para el ZIP...">
@@ -120,26 +66,20 @@
     <li id="symbolReq">Al menos un símbolo</li>
   </ul>
 
+  <button id="zipButton">Crear ZIP cifrado</button>
   <label for="passwordConfirm">Confirma la contraseña:</label>
   <input type="password" id="passwordConfirm" placeholder="Repite la contraseña...">
   <div id="passwordMatch" class="passwords-match">Las contraseñas no coinciden</div>
-
   <button id="zipButton" disabled>Crear ZIP cifrado</button>
 
   <div id="status"></div>
 
   <script>
+    // Configuración básica de zip.js
     zip.configure({
       useWebWorkers: false
     });
-
-    function showStatus(msg, className) {
-      const statusDiv = document.getElementById('status');
-      statusDiv.textContent = msg;
-      statusDiv.className = '';
-      if (className) {
-        statusDiv.classList.add(className);
-      }
+@@ -88,65 +124,97 @@
       statusDiv.style.display = 'block';
     }
 
@@ -151,16 +91,13 @@
         number: /[0-9]/.test(password),
         symbol: /[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?]/.test(password)
       };
-
       document.getElementById('lengthReq').classList.toggle('met', requirements.length);
       document.getElementById('upperReq').classList.toggle('met', requirements.upper);
       document.getElementById('lowerReq').classList.toggle('met', requirements.lower);
       document.getElementById('numberReq').classList.toggle('met', requirements.number);
       document.getElementById('symbolReq').classList.toggle('met', requirements.symbol);
-
       return Object.values(requirements).every(req => req);
     }
-
     function checkPasswordsMatch() {
       const password = document.getElementById('passwordInput').value;
       const confirm = document.getElementById('passwordConfirm').value;
@@ -172,7 +109,6 @@
       
       return matches;
     }
-
     function updateZipButton() {
       const password = document.getElementById('passwordInput').value;
       const fileSelected = document.getElementById('fileInput').files.length > 0;
@@ -181,16 +117,21 @@
       
       document.getElementById('zipButton').disabled = !fileSelected || !validPassword || !passwordsMatch;
     }
-
     document.getElementById('fileInput').addEventListener('change', updateZipButton);
     document.getElementById('passwordInput').addEventListener('input', updateZipButton);
     document.getElementById('passwordConfirm').addEventListener('input', updateZipButton);
-
     document.getElementById('zipButton').addEventListener('click', async () => {
       const fileInput = document.getElementById('fileInput');
       const password = document.getElementById('passwordInput').value.trim();
-      const dlpTag = document.getElementById('dlpTag').value;
 
+      if (!fileInput.files[0]) {
+        showStatus('Por favor, selecciona un fichero.', 'status-error');
+        return;
+      }
+      if (!password) {
+        showStatus('Por favor, introduce una contraseña.', 'status-error');
+        return;
+      }
       showStatus('Creando ZIP cifrado, espera...', '');
 
       try {
@@ -198,29 +139,27 @@
         const arrayBuffer = await file.arrayBuffer();
         const fileName = file.name;
 
+        // Configuración simplificada
         const zipConfig = {
           password,
           encryptionStrength: 3,
+          zipCrypto: true, // Usar ZipCrypto para mejor compatibilidad
           zipCrypto: true,
           useWebWorkers: false,
+          level: 5 // Nivel de compresión moderado
           level: 5
         };
 
         const zipFileWriter = new zip.BlobWriter("application/zip");
         const zipWriter = new zip.ZipWriter(zipFileWriter, zipConfig);
 
-        const fileOptions = {
+        // Configuración específica del archivo
+        await zipWriter.add(fileName, new zip.Uint8ArrayReader(new Uint8Array(arrayBuffer)), {
           password,
           encryptionStrength: 3,
           zipCrypto: true,
           level: 5
-        };
-
-        if (dlpTag) {
-          fileOptions.comment = dlpTag;
-        }
-
-        await zipWriter.add(fileName, new zip.Uint8ArrayReader(new Uint8Array(arrayBuffer)), fileOptions);
+        });
 
         await zipWriter.close();
         const zipBlob = await zipFileWriter.getData();
@@ -231,11 +170,11 @@
         downloadLink.download = zipName;
         document.body.appendChild(downloadLink);
         downloadLink.click();
-        
+
         URL.revokeObjectURL(downloadLink.href);
         document.body.removeChild(downloadLink);
 
-        showStatus(`ZIP cifrado generado${dlpTag ? ` con etiqueta DLP: ${dlpTag}` : ''}`, 'status-success');
+        showStatus(`ZIP cifrado generado: ${zipName}`, 'status-success');
       } catch (error) {
         console.error(error);
         showStatus(`Error al crear ZIP: ${error.message}`, 'status-error');
