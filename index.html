@@ -1,19 +1,42 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
   <meta charset="UTF-8"/>
   <title>Ejemplo ZIP AES-256</title>
   <script src="zip-full.min.js"></script>
   <style>
     body {
       font-family: Arial, sans-serif;
-@@ -28,7 +27,7 @@
+      max-width: 600px;
+      margin: 20px auto;
+      background-color: #f8f8f8;
+      padding: 20px;
+    }
+    h1 {
+      text-align: center;
+      color: #4a90e2;
+    }
+    label {
+      font-weight: bold;
+      display: block;
+      margin-top: 10px;
+    }
+    input[type="file"] {
+      margin-top: 5px;
+      margin-bottom: 15px;
     }
     input[type="password"] {
       margin-top: 5px;
-      margin-bottom: 15px;
       margin-bottom: 5px;
       width: 100%;
       max-width: 300px;
     }
-@@ -41,6 +40,10 @@
+    button {
+      margin-top: 10px;
+      background-color: #4caf50;
+      color: #fff;
+      padding: 8px 16px;
+      border: none;
       border-radius: 4px;
       cursor: pointer;
     }
@@ -24,7 +47,16 @@
     #status {
       margin-top: 15px;
       padding: 10px;
-@@ -57,6 +60,28 @@
+      border-radius: 4px;
+      display: none;
+    }
+    .status-error {
+      background-color: #f8d7da;
+      color: #721c24;
+      border: 1px solid #f5c6cb;
+    }
+    .status-success {
+      background-color: #d4edda;
       color: #155724;
       border: 1px solid #c3e6cb;
     }
@@ -53,7 +85,10 @@
   </style>
 </head>
 <body>
-@@ -67,13 +92,24 @@
+  <h1>ZIP con AES-256</h1>
+
+  <label for="fileInput">Selecciona un fichero:</label>
+  <input type="file" id="fileInput">
 
   <label for="passwordInput">Introduce una contraseña (AES-256):</label>
   <input type="password" id="passwordInput" placeholder="Contraseña para el ZIP...">
@@ -66,20 +101,26 @@
     <li id="symbolReq">Al menos un símbolo</li>
   </ul>
 
-  <button id="zipButton">Crear ZIP cifrado</button>
   <label for="passwordConfirm">Confirma la contraseña:</label>
   <input type="password" id="passwordConfirm" placeholder="Repite la contraseña...">
   <div id="passwordMatch" class="passwords-match">Las contraseñas no coinciden</div>
+
   <button id="zipButton" disabled>Crear ZIP cifrado</button>
 
   <div id="status"></div>
 
   <script>
-    // Configuración básica de zip.js
     zip.configure({
       useWebWorkers: false
     });
-@@ -88,65 +124,97 @@
+
+    function showStatus(msg, className) {
+      const statusDiv = document.getElementById('status');
+      statusDiv.textContent = msg;
+      statusDiv.className = '';
+      if (className) {
+        statusDiv.classList.add(className);
+      }
       statusDiv.style.display = 'block';
     }
 
@@ -91,13 +132,16 @@
         number: /[0-9]/.test(password),
         symbol: /[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?]/.test(password)
       };
+
       document.getElementById('lengthReq').classList.toggle('met', requirements.length);
       document.getElementById('upperReq').classList.toggle('met', requirements.upper);
       document.getElementById('lowerReq').classList.toggle('met', requirements.lower);
       document.getElementById('numberReq').classList.toggle('met', requirements.number);
       document.getElementById('symbolReq').classList.toggle('met', requirements.symbol);
+
       return Object.values(requirements).every(req => req);
     }
+
     function checkPasswordsMatch() {
       const password = document.getElementById('passwordInput').value;
       const confirm = document.getElementById('passwordConfirm').value;
@@ -109,6 +153,7 @@
       
       return matches;
     }
+
     function updateZipButton() {
       const password = document.getElementById('passwordInput').value;
       const fileSelected = document.getElementById('fileInput').files.length > 0;
@@ -117,21 +162,15 @@
       
       document.getElementById('zipButton').disabled = !fileSelected || !validPassword || !passwordsMatch;
     }
+
     document.getElementById('fileInput').addEventListener('change', updateZipButton);
     document.getElementById('passwordInput').addEventListener('input', updateZipButton);
     document.getElementById('passwordConfirm').addEventListener('input', updateZipButton);
+
     document.getElementById('zipButton').addEventListener('click', async () => {
       const fileInput = document.getElementById('fileInput');
       const password = document.getElementById('passwordInput').value.trim();
 
-      if (!fileInput.files[0]) {
-        showStatus('Por favor, selecciona un fichero.', 'status-error');
-        return;
-      }
-      if (!password) {
-        showStatus('Por favor, introduce una contraseña.', 'status-error');
-        return;
-      }
       showStatus('Creando ZIP cifrado, espera...', '');
 
       try {
@@ -139,21 +178,17 @@
         const arrayBuffer = await file.arrayBuffer();
         const fileName = file.name;
 
-        // Configuración simplificada
         const zipConfig = {
           password,
           encryptionStrength: 3,
-          zipCrypto: true, // Usar ZipCrypto para mejor compatibilidad
           zipCrypto: true,
           useWebWorkers: false,
-          level: 5 // Nivel de compresión moderado
           level: 5
         };
 
         const zipFileWriter = new zip.BlobWriter("application/zip");
         const zipWriter = new zip.ZipWriter(zipFileWriter, zipConfig);
 
-        // Configuración específica del archivo
         await zipWriter.add(fileName, new zip.Uint8ArrayReader(new Uint8Array(arrayBuffer)), {
           password,
           encryptionStrength: 3,
@@ -170,7 +205,7 @@
         downloadLink.download = zipName;
         document.body.appendChild(downloadLink);
         downloadLink.click();
-
+        
         URL.revokeObjectURL(downloadLink.href);
         document.body.removeChild(downloadLink);
 
