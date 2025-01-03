@@ -73,6 +73,11 @@
   <div id="status"></div>
 
   <script>
+    // Configuración de zip.js para usar web workers (mejora el rendimiento)
+    zip.configure({
+      useWebWorkers: true
+    });
+
     // Función para mostrar mensajes en pantalla
     function showStatus(msg, className) {
       const statusDiv = document.getElementById('status');
@@ -106,33 +111,41 @@
         const arrayBuffer = await file.arrayBuffer();
         const fileName = file.name;
 
-        // 2) Creamos el ZIP usando Blob
+        // 2) Configuración de la encriptación
+        const zipConfig = {
+          password: password,
+          encryptionStrength: 3, // AES-256
+          zipCrypto: false,      // Usar AES en lugar de ZipCrypto (algoritmo legacy)
+          bufferedWrite: true,   // Mejora el rendimiento
+          useWebWorkers: true    // Usa workers para no bloquear la UI
+        };
+
+        // 3) Creamos el ZIP
         const zipFileWriter = new zip.BlobWriter("application/zip");
-        
-        // 3) Creamos ZipWriter con contraseña y AES-256
-        const zipWriter = new zip.ZipWriter(zipFileWriter, {
-          password,
-          encryptionStrength: 3 // AES-256
+        const zipWriter = new zip.ZipWriter(zipFileWriter, zipConfig);
+
+        // 4) Añadimos el fichero con configuración específica para el archivo
+        await zipWriter.add(fileName, new zip.Uint8ArrayReader(new Uint8Array(arrayBuffer)), {
+          password: password,
+          encryptionStrength: 3,
+          zipCrypto: false
         });
 
-        // 4) Añadimos el fichero al ZIP
-        await zipWriter.add(fileName, new zip.Uint8ArrayReader(new Uint8Array(arrayBuffer)));
-
-        // 5) Cerramos el ZIP y obtenemos el blob
+        // 5) Cerramos y obtenemos el blob
         await zipWriter.close();
         const zipBlob = await zipFileWriter.getData();
 
-        // 6) Creamos el nombre del archivo ZIP
+        // 6) Nombre del archivo
         const zipName = `${fileName.split('.')[0]}_AES256.zip`;
 
-        // 7) Creamos un enlace temporal y forzamos la descarga
+        // 7) Descarga
         const downloadLink = document.createElement('a');
         downloadLink.href = URL.createObjectURL(zipBlob);
         downloadLink.download = zipName;
         document.body.appendChild(downloadLink);
         downloadLink.click();
         
-        // 8) Limpiamos
+        // 8) Limpieza
         URL.revokeObjectURL(downloadLink.href);
         document.body.removeChild(downloadLink);
 
