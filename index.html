@@ -3,12 +3,6 @@
 <head>
   <meta charset="UTF-8"/>
   <title>Ejemplo ZIP AES-256</title>
-  
-  <!-- Cargar la librería local (zip-full.min.js) o desde la CDN:
-       <script src="https://cdn.jsdelivr.net/npm/zip.js@2.6.63/dist/zip-full.min.js"></script>
-       Si la tienes en local, reemplaza la ruta:
-       <script src="zip-full.min.js"></script>
-  -->
   <script src="zip-full.min.js"></script>
 
   <style>
@@ -112,34 +106,35 @@
         const arrayBuffer = await file.arrayBuffer();
         const fileName = file.name;
 
-        // 2) Instanciamos un BlobWriter
-        const blobWriter = new zip.BlobWriter("application/zip");
-
+        // 2) Creamos el ZIP usando Blob
+        const zipFileWriter = new zip.BlobWriter("application/zip");
+        
         // 3) Creamos ZipWriter con contraseña y AES-256
-        const zipWriter = new zip.ZipWriter(blobWriter, {
+        const zipWriter = new zip.ZipWriter(zipFileWriter, {
           password,
           encryptionStrength: 3 // AES-256
         });
 
-        // 4) Añadimos el fichero
-        const fileUint8 = new Uint8Array(arrayBuffer);
-        await zipWriter.add(fileName, new zip.Uint8ArrayReader(fileUint8));
+        // 4) Añadimos el fichero al ZIP
+        await zipWriter.add(fileName, new zip.Uint8ArrayReader(new Uint8Array(arrayBuffer)));
 
-        // 5) Cerramos el ZipWriter
+        // 5) Cerramos el ZIP y obtenemos el blob
         await zipWriter.close();
+        const zipBlob = await zipFileWriter.getData();
 
-        // 6) Obtenemos el Blob
-        const zipBlob = blobWriter.getData();
+        // 6) Creamos el nombre del archivo ZIP
+        const zipName = `${fileName.split('.')[0]}_AES256.zip`;
 
-        // 7) Fuerza la descarga del ZIP
-        const zipName = fileName.replace(/\.\w+$/, '') + '_AES256.zip';
-        const url = URL.createObjectURL(zipBlob);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = zipName;
-        document.body.appendChild(a);
-        a.click();
-        document.body.removeChild(a);
+        // 7) Creamos un enlace temporal y forzamos la descarga
+        const downloadLink = document.createElement('a');
+        downloadLink.href = URL.createObjectURL(zipBlob);
+        downloadLink.download = zipName;
+        document.body.appendChild(downloadLink);
+        downloadLink.click();
+        
+        // 8) Limpiamos
+        URL.revokeObjectURL(downloadLink.href);
+        document.body.removeChild(downloadLink);
 
         showStatus(`ZIP cifrado generado: ${zipName}`, 'status-success');
       } catch (error) {
