@@ -73,12 +73,11 @@
   <div id="status"></div>
 
   <script>
-    // Configuración de zip.js para usar web workers (mejora el rendimiento)
+    // Configuración básica de zip.js
     zip.configure({
-      useWebWorkers: true
+      useWebWorkers: false
     });
 
-    // Función para mostrar mensajes en pantalla
     function showStatus(msg, className) {
       const statusDiv = document.getElementById('status');
       statusDiv.textContent = msg;
@@ -93,7 +92,6 @@
       const fileInput = document.getElementById('fileInput');
       const password = document.getElementById('passwordInput').value.trim();
 
-      // Validaciones
       if (!fileInput.files[0]) {
         showStatus('Por favor, selecciona un fichero.', 'status-error');
         return;
@@ -106,46 +104,40 @@
       showStatus('Creando ZIP cifrado, espera...', '');
 
       try {
-        // 1) Leemos el archivo
         const file = fileInput.files[0];
         const arrayBuffer = await file.arrayBuffer();
         const fileName = file.name;
 
-        // 2) Configuración de la encriptación
+        // Configuración simplificada
         const zipConfig = {
-          password: password,
-          encryptionStrength: 3, // AES-256
-          zipCrypto: false,      // Usar AES en lugar de ZipCrypto (algoritmo legacy)
-          bufferedWrite: true,   // Mejora el rendimiento
-          useWebWorkers: true    // Usa workers para no bloquear la UI
+          password,
+          encryptionStrength: 3,
+          zipCrypto: true, // Usar ZipCrypto para mejor compatibilidad
+          useWebWorkers: false,
+          level: 5 // Nivel de compresión moderado
         };
 
-        // 3) Creamos el ZIP
         const zipFileWriter = new zip.BlobWriter("application/zip");
         const zipWriter = new zip.ZipWriter(zipFileWriter, zipConfig);
 
-        // 4) Añadimos el fichero con configuración específica para el archivo
+        // Configuración específica del archivo
         await zipWriter.add(fileName, new zip.Uint8ArrayReader(new Uint8Array(arrayBuffer)), {
-          password: password,
+          password,
           encryptionStrength: 3,
-          zipCrypto: false
+          zipCrypto: true,
+          level: 5
         });
 
-        // 5) Cerramos y obtenemos el blob
         await zipWriter.close();
         const zipBlob = await zipFileWriter.getData();
 
-        // 6) Nombre del archivo
-        const zipName = `${fileName.split('.')[0]}_AES256.zip`;
-
-        // 7) Descarga
+        const zipName = `${fileName.split('.')[0]}_encrypted.zip`;
         const downloadLink = document.createElement('a');
         downloadLink.href = URL.createObjectURL(zipBlob);
         downloadLink.download = zipName;
         document.body.appendChild(downloadLink);
         downloadLink.click();
         
-        // 8) Limpieza
         URL.revokeObjectURL(downloadLink.href);
         document.body.removeChild(downloadLink);
 
